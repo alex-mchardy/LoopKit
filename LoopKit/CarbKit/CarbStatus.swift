@@ -51,22 +51,21 @@ extension CarbStatus {
 
         let unit = HKUnit.gram()
 
-        guard let observedTimeline = observedTimeline else {
-            // Less than minimum observed; calc based on min absorption rate
+        guard let observedTimeline = observedTimeline, let observationEnd = observedTimeline.last?.endDate else {
+            // Less than minimum observed or observation not yet started; calc based on modeled absorption rate
             let total = absorption.total.doubleValue(for: unit)
             let time = date.timeIntervalSince(startDate) - delay
             let absorptionTime = absorption.estimatedDate.duration
-
-            return LinearAbsorption.unabsorbedCarbs(of: total, atTime: time, absorptionTime: absorptionTime)
+            return PiecewiseLinearAbsorption.unabsorbedCarbs(of: total, atTime: time, absorptionTime: absorptionTime)
         }
 
-        guard let end = observedTimeline.last?.endDate, date <= end else {
+        guard date <= observationEnd else {
             // Predicted absorption for remaining carbs, post-observation
-            let total = absorption.remaining.doubleValue(for: unit)
-            let time = date.timeIntervalSince(absorption.observedDate.end)
-            let absorptionTime = absorption.estimatedTimeRemaining
-
-            return LinearAbsorption.unabsorbedCarbs(of: total, atTime: time, absorptionTime: absorptionTime)
+            let time = date.timeIntervalSince(startDate) - delay
+            let total = absorption.total.doubleValue(for: unit)
+            let dynamicAbsorptionTime = observationEnd.timeIntervalSince(startDate) - delay + absorption.estimatedTimeRemaining
+            let unabsorbedCarbs = PiecewiseLinearAbsorption.unabsorbedCarbs(of: total, atTime: time, absorptionTime: dynamicAbsorptionTime)
+            return unabsorbedCarbs
         }
 
         // Observed absorption
@@ -87,22 +86,21 @@ extension CarbStatus {
 
         let unit = HKUnit.gram()
 
-        guard let observedTimeline = observedTimeline else {
-            // Less than minimum observed; calc based on min absorption rate
+        guard let observedTimeline = observedTimeline, let observationEnd = observedTimeline.last?.endDate else {
+            // Less than minimum observed or observation not yet started; calc based on modeled absorption rate
             let total = absorption.total.doubleValue(for: unit)
             let time = date.timeIntervalSince(startDate) - delay
             let absorptionTime = absorption.estimatedDate.duration
-
-            return LinearAbsorption.absorbedCarbs(of: total, atTime: time, absorptionTime: absorptionTime)
+            return PiecewiseLinearAbsorption.absorbedCarbs(of: total, atTime: time, absorptionTime: absorptionTime)
         }
 
-        guard let end = observedTimeline.last?.endDate, date <= end else {
+        guard date <= observationEnd else {
             // Predicted absorption for remaining carbs, post-observation
-            let total = absorption.remaining.doubleValue(for: unit)
-            let time = date.timeIntervalSince(absorption.observedDate.end)
-            let absorptionTime = absorption.estimatedTimeRemaining
-
-            return absorption.clamped.doubleValue(for: unit) + LinearAbsorption.absorbedCarbs(of: total, atTime: time, absorptionTime: absorptionTime)
+            let time = date.timeIntervalSince(startDate) - delay
+            let total = absorption.total.doubleValue(for: unit)
+            let dynamicAbsorptionTime = observationEnd.timeIntervalSince(startDate) - delay + absorption.estimatedTimeRemaining
+            let absorbedCarbs = PiecewiseLinearAbsorption.absorbedCarbs(of: total, atTime: time, absorptionTime: dynamicAbsorptionTime)
+            return absorbedCarbs
         }
 
         // Observed absorption
